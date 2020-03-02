@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "allowJs": false,
+    "baseUrl": "./src",
+    "declaration": false,
+    "esModuleInterop": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "isolatedModules": false,
+    "lib": ["ESNext", "dom"],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": "./dist",
+    "skipLibCheck": true,
+    "strict": false,
+    "paths": {
+      "@app/*": ["./*"],
+      "@interfaces/*": ["./interfaces/*"],
+      "@modules/*": ["./modules/*"],
+      "@utilities/*": ["./utilities/*"],
+      "@services/*": ["./services/*"],
+      "@validators/*": ["./validators/*"]
+    },
+    "sourceMap": true,
+    "target": "es2019"
+  },
+  "include": ["src"],
+  "exclude": ["node_modules"]
+}
