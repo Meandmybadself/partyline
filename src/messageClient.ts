@@ -1,19 +1,60 @@
-import mongoose from 'mongoose'
 import { Document } from 'mongoose'
-import Twilio from 'twilio'
-import { Request, Response, NextFunction } from 'express'
+import { ObjectId } from 'mongodb'
+import { Request, Response } from 'express'
+
 import moment from 'moment'
+import mongoose from 'mongoose'
+import Twilio from 'twilio'
 
 const twilio = Twilio(process.env.ACCOUNT_SID, process.env.ACCOUNT_TOKEN)
 
+interface IUser extends Document {
+  phonenumber: string
+  enabledUntil: Date
+  role: string
+}
+
+interface IMessage extends Document {
+  body: string
+  authorId: ObjectId
+  createdAt: Date
+}
+
 const getUserModel = () => mongoose.model('User')
+const getMessageModel = () => mongoose.model('Message')
 
-const getActiveUserNumbers = async (): Promise<Document[]> =>
-  getUserModel().find({ enabledUntil: { $lt: moment().endOf('day') } }, { phonenumber: 1 })
+const getActiveUserNumbers = async (userToExclude: IUser): Promise<IUser[]> =>
+  getUserModel()
+    .find({ _id: { $ne: userToExclude._id }, enabledUntil: { $lt: moment().endOf('day') } }, { phonenumber: 1 })
+    .lean<IUser>()
 
-const broadcastMessage = async (message: string) => {
-  const activeUsers: Document[] = await getActiveUserNumbers()
-  await Promise.all(activeUsers.map(({ phonenumber }) => sendMessage(message, phonenumber)))
+const broadcastMessage = async (body: string, authorId: IUser) => {
+  const activeUsers: IUser[] = await getActiveUserNumbers(authorId)
+
+  // Persist this message.
+  await getMessageModel().create({ body, authorId })
+
+  await Promise.all(activeUsers.map(({ phonenumber }) => sendMessage(body, phonenumber)))
+}
+
+const catchEmUp = async (user: IUser) => {
+  const messages: IMessage[] = await getMessageModel()
+    .find({
+      createdAt: {
+        $gte: moment()
+          .startOf('day')
+          .toDate(),
+      },
+      authorId: {
+        $ne: user._id,
+      },
+    })
+    .sort({
+      createdAt: 1,
+    })
+    .lean<IMessage>()
+
+  return Promise.all(messages.map((message: IMessage) => sendMessage(message.body, user.phonenumber)))
 }
 
 const sendMessage = async (body: string, to: string) =>
@@ -32,12 +73,14 @@ const START_MESSAGE = `👂`
 const STOP_MESSAGE = `🤐`
 const SENT_MESSAGE = `🚀`
 
-export const receiveMessage = async (req: Request, res: Response, next: NextFunction) => {
+export const receiveMessage = async (req: Request, res: Response) => {
   const From: string = req.body.From
   const Body: string = req.body.Body.trim()
 
   // Load user
-  const User = getUserModel().findOneAndUpdate({ phonenumber: From }, {}, { upsert: true, new: true })
+  const user: IUser = await getUserModel()
+    .findOneAndUpdate({ phonenumber: From }, {}, { upsert: true, new: true })
+    .lean<IUser>()
 
   // Is this a command?
   const normalizedMessage = Body.trim()
@@ -55,8 +98,17 @@ export const receiveMessage = async (req: Request, res: Response, next: NextFunc
     case '1':
       await sendMessage(START_MESSAGE, From)
       // Send any messages from the start of the day.
-
-      // await Promise.all()
+      await getUserModel().findOneAndUpdate(
+        { _id: user._id },
+        {
+          $set: {
+            enabledUntil: moment()
+              .endOf('year')
+              .toDate(),
+          },
+        }
+      )
+      await catchEmUp(user)
       break
     case 'stop':
     case 'off':
@@ -66,15 +118,25 @@ export const receiveMessage = async (req: Request, res: Response, next: NextFunc
       break
     case 'day':
       await sendMessage(START_MESSAGE, From)
-      // Send any messages from the start of the day.
-      // await Promise.all()
+      await getUserModel().findOneAndUpdate(
+        { _id: user._id },
+        {
+          $set: {
+            enabledUntil: moment()
+              .endOf('day')
+              .toDate(),
+          },
+        }
+      )
+      // Send any messages from the start of the day.`
+      await catchEmUp(user)
       break
     default:
       // Store & propagate.
       if (normalizedMessage.length > 5) {
-        broadcastMessage(Body)
+        broadcastMessage(Body, user)
       }
-      await sendMessage(SENT_MESSAGE, From)
+      await sendMessage(SENT_MESSAGE, user.phonenumber)
       break
   }
 

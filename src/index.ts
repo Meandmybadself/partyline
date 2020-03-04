@@ -1,27 +1,34 @@
-import express from 'express'
 import { config } from 'dotenv'
-import { receiveMessage } from './messageClient'
-
+import bodyParser from 'body-parser'
+import express from 'express'
 config({ path: './.env' })
 
-import Message from './models/message'
-import User from './models/user'
+import mongoose from 'mongoose'
 
-const initializeModels = () => {
-  new Message()
-  new User()
-}
+mongoose
+  .connect(process.env.DB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    useFindAndModify: false,
+    useCreateIndex: true,
+  })
+  .catch(error => console.log(error))
 
-export default initializeModels
+import initializeModels from './models'
+initializeModels()
+
+import { receiveMessage } from './messageClient'
 
 const app = express()
-app.get('/', (req, res) => res.send('Partyline'))
-app.post('/')
+app.use(bodyParser.urlencoded())
+app.use(bodyParser.json())
 
+app.get('/', (req, res) => res.send('Partyline'))
+app.post('/', receiveMessage)
 app.listen(process.env.PORT)
 console.log('')
 console.log('=============================')
 console.log('🥳 partyline')
 console.log('-----------------------------')
-console.log(`${process.env.APP_URL}:${process.env.APP_PORT}/`)
+console.log(`${process.env.APP_URL}:${process.env.PORT}/`)
 console.log('')

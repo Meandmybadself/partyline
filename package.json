@@ -2,7 +2,7 @@
   "name": "sms",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "src",
   "scripts": {
     "build": "tsc",
     "dev": "nodemon -r ts-node/register",
@@ -12,12 +12,14 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "body-parser": "^1.19.0",
     "cors": "^2.8.5",
     "dotenv": "^8.2.0",
     "express": "^4.17.1",
     "moment": "^2.24.0",
     "mongoose": "^5.9.2",
-    "twilio": "^3.39.5"
+    "twilio": "^3.39.5",
+    "typescript": "^3.8.3"
   },
   "devDependencies": {
     "@types/express": "^4.17.2",
@@ -44,5 +46,17 @@
       "pre-commit": "yarn lint:fix",
       "pre-push": "yarn lint:fix"
     }
+  },
+  "nodemonConfig": {
+    "ignore": [
+      "**/*.spec.ts",
+      ".git",
+      "node_modules"
+    ],
+    "watch": [
+      "src"
+    ],
+    "exec": "ts-node ./src/index.ts",
+    "ext": "ts"
   }
 }
