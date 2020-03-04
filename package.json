@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "nodemon -r ts-node/register",
-    "lint:fix": "eslint --fix --ext .ts ./src"
+    "lint:fix": "eslint --fix --ext .ts ./src",
+    "promote": "ssh mn && cd /var/www/partyline && git pull && npm i && pm2 restart partyline"
   },
   "keywords": [],
   "author": "",
@@ -39,6 +40,7 @@
     "eslint-plugin-react": "^7.18.3",
     "husky": "^4.2.2",
     "nodemon": "^2.0.2",
+    "prettier": "^1.19.1",
     "ts-node": "^8.6.2"
   },
   "husky": {
