@@ -7,7 +7,7 @@
     "build": "tsc",
     "dev": "nodemon -r ts-node/register",
     "lint:fix": "eslint --fix --ext .ts ./src",
-    "promote": "ssh mn && cd /var/www/partyline && git pull && yarn && pm2 restart partyline"
+    "promote": "ssh mn 'cd /var/www/partyline && git pull && yarn && pm2 restart partyline'"
   },
   "keywords": [],
   "author": "",
