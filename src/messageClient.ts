@@ -18,6 +18,7 @@ interface IMessage extends Document {
   body: string
   authorId: ObjectId
   createdAt: Date
+  user: IUser
 }
 
 const getUserModel = () => mongoose.model('User')
@@ -25,21 +26,26 @@ const getMessageModel = () => mongoose.model('Message')
 
 const getActiveUserNumbers = async (userToExclude: IUser): Promise<IUser[]> =>
   getUserModel()
-    .find({ _id: { $ne: userToExclude._id }, enabledUntil: { $lt: moment().endOf('day') } }, { phonenumber: 1 })
+    .find({ _id: { $ne: userToExclude._id }, enabledUntil: { $gte: moment().endOf('day') } }, { phonenumber: 1 })
     .lean<IUser>()
 
-const broadcastMessage = async (body: string, authorId: IUser) => {
-  const activeUsers: IUser[] = await getActiveUserNumbers(authorId)
+const broadcastMessage = async (body: string, author: IUser) => {
+  const activeUsers: IUser[] = await getActiveUserNumbers(author)
+
+  console.log({ activeUsers })
 
   // Persist this message.
-  await getMessageModel().create({ body, authorId })
+  await getMessageModel().create({ body, authorId: author._id })
+
+  body = `${author.phonenumber}: ${body}`
 
   await Promise.all(activeUsers.map(({ phonenumber }) => sendMessage(body, phonenumber)))
 }
 
 const catchEmUp = async (user: IUser) => {
   const messages: IMessage[] = await getMessageModel()
-    .find({
+    .aggregate()
+    .match({
       createdAt: {
         $gte: moment()
           .startOf('day')
@@ -52,9 +58,14 @@ const catchEmUp = async (user: IUser) => {
     .sort({
       createdAt: 1,
     })
-    .lean<IMessage>()
+    .lookup({
+      from: 'users',
+      localField: 'authorId',
+      foreignField: '_id',
+      as: 'user',
+    })
 
-  return Promise.all(messages.map((message: IMessage) => sendMessage(message.body, user.phonenumber)))
+  return Promise.all(messages.map((message: IMessage) => broadcastMessage(message.body, message.user)))
 }
 
 const sendMessage = async (body: string, to: string) =>
@@ -74,29 +85,35 @@ const STOP_MESSAGE = `🤐`
 const SENT_MESSAGE = `🚀`
 
 export const receiveMessage = async (req: Request, res: Response) => {
-  const From: string = req.body.From
-  const Body: string = req.body.Body.trim()
+  const from: string = req.body.From
+  const body: string = req.body.Body.trim()
+
+  console.log(`receiveMessage - ${from}: ${body}`)
 
   // Load user
   const user: IUser = await getUserModel()
-    .findOneAndUpdate({ phonenumber: From }, {}, { upsert: true, new: true })
+    .findOneAndUpdate({ phonenumber: from }, {}, { upsert: true, new: true })
     .lean<IUser>()
 
+  console.log({ user })
+
   // Is this a command?
-  const normalizedMessage = Body.trim()
+  const normalizedMessage = body
+    .trim()
     .toLowerCase()
     .replace(/[^\w|\s]+/g, '')
 
   switch (normalizedMessage) {
     case 'hi':
+    case 'sup':
     case 'help':
     case '?':
-      await sendMessage(HELP_MESSAGE, From)
+      await sendMessage(HELP_MESSAGE, from)
       break
     case 'start':
     case 'on':
     case '1':
-      await sendMessage(START_MESSAGE, From)
+      await sendMessage(START_MESSAGE, from)
       // Send any messages from the start of the day.
       await getUserModel().findOneAndUpdate(
         { _id: user._id },
@@ -114,10 +131,10 @@ export const receiveMessage = async (req: Request, res: Response) => {
     case 'off':
     case 'mute':
     case '0':
-      await sendMessage(STOP_MESSAGE, From)
+      await sendMessage(STOP_MESSAGE, from)
       break
     case 'day':
-      await sendMessage(START_MESSAGE, From)
+      await sendMessage(START_MESSAGE, from)
       await getUserModel().findOneAndUpdate(
         { _id: user._id },
         {
@@ -134,9 +151,9 @@ export const receiveMessage = async (req: Request, res: Response) => {
     default:
       // Store & propagate.
       if (normalizedMessage.length > 5) {
-        broadcastMessage(Body, user)
+        broadcastMessage(body, user)
+        await sendMessage(SENT_MESSAGE, user.phonenumber)
       }
-      await sendMessage(SENT_MESSAGE, user.phonenumber)
       break
   }
 
