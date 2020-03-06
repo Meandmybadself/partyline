@@ -32,8 +32,6 @@ const getActiveUserNumbers = async (userToExclude: IUser): Promise<IUser[]> =>
 const broadcastMessage = async (body: string, author: IUser) => {
   const activeUsers: IUser[] = await getActiveUserNumbers(author)
 
-  console.log({ activeUsers })
-
   // Persist this message.
   await getMessageModel().create({ body, authorId: author._id })
 
@@ -82,7 +80,6 @@ const HELP_MESSAGE = `Commands:
 * day - Receive messages until the end of the day`
 const START_MESSAGE = `👂`
 const STOP_MESSAGE = `🤐`
-const SENT_MESSAGE = `🚀`
 
 export const receiveMessage = async (req: Request, res: Response) => {
   const from: string = req.body.From
@@ -94,8 +91,6 @@ export const receiveMessage = async (req: Request, res: Response) => {
   const user: IUser = await getUserModel()
     .findOneAndUpdate({ phonenumber: from }, {}, { upsert: true, new: true })
     .lean<IUser>()
-
-  console.log({ user })
 
   // Is this a command?
   const normalizedMessage = body
@@ -132,6 +127,16 @@ export const receiveMessage = async (req: Request, res: Response) => {
     case 'mute':
     case '0':
       await sendMessage(STOP_MESSAGE, from)
+      await getUserModel().findOneAndUpdate(
+        { _id: user._id },
+        {
+          $set: {
+            enabledUntil: moment()
+              .startOf('day')
+              .toDate(),
+          },
+        }
+      )
       break
     case 'day':
       await sendMessage(START_MESSAGE, from)
@@ -150,10 +155,7 @@ export const receiveMessage = async (req: Request, res: Response) => {
       break
     default:
       // Store & propagate.
-      if (normalizedMessage.length > 5) {
-        broadcastMessage(body, user)
-        await sendMessage(SENT_MESSAGE, user.phonenumber)
-      }
+      broadcastMessage(body, user)
       break
   }
 
