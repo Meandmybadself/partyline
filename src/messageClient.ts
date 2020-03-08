@@ -79,7 +79,20 @@ const HELP_MESSAGE = `Commands:
 * mute - Mute messages
 * day - Receive messages until the end of the day`
 const START_MESSAGE = `👂`
-const STOP_MESSAGE = `🤐`
+const STOP_MESSAGE = `🔇`
+
+const subscribe = async (user: IUser): Promise<void> => {
+  await getUserModel().findOneAndUpdate(
+    { _id: user._id },
+    {
+      $set: {
+        enabledUntil: moment()
+          .startOf('day')
+          .toDate(),
+      },
+    }
+  )
+}
 
 export const receiveMessage = async (req: Request, res: Response) => {
   const from: string = req.body.From
@@ -104,22 +117,14 @@ export const receiveMessage = async (req: Request, res: Response) => {
     case 'help':
     case '?':
       await sendMessage(HELP_MESSAGE, from)
+      await subscribe(user)
       break
     case 'start':
     case 'on':
     case '1':
       await sendMessage(START_MESSAGE, from)
       // Send any messages from the start of the day.
-      await getUserModel().findOneAndUpdate(
-        { _id: user._id },
-        {
-          $set: {
-            enabledUntil: moment()
-              .endOf('year')
-              .toDate(),
-          },
-        }
-      )
+      await subscribe(user)
       await catchEmUp(user)
       break
     case 'stop':
