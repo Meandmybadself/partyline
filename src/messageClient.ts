@@ -37,6 +37,7 @@ const broadcastMessage = async (body: string, author: IUser) => {
   await getMessageModel().create({ body, authorId: author._id })
 
   body = `${author.phonenumber}: ${body}`
+  console.log(`Broadcasting message to ${activeUsers.length} users, ${body}`)
 
   await Promise.all(activeUsers.map(({ phonenumber }) => sendMessage(body, phonenumber)))
 }
