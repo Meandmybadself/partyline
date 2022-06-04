@@ -37,6 +37,7 @@ const broadcastMessage = async (body: string, author: IUser) => {
   await getMessageModel().create({ body, authorId: author._id })
 
   body = `${author.phonenumber}: ${body}`
+  console.log(`Broadcasting message to ${activeUsers.length} users, ${body}`)
 
   await Promise.all(activeUsers.map(({ phonenumber }) => sendMessage(body, phonenumber)))
 }
@@ -64,6 +65,8 @@ const catchEmUp = async (user: IUser) => {
       as: 'user',
     })
 
+  console.log('Catching up', messages.length)
+
   return Promise.all(messages.map((message: IMessage) => broadcastMessage(message.body, message.user)))
 }
 
@@ -75,7 +78,7 @@ const sendMessage = async (body: string, to: string) =>
   })
 
 const HELP_MESSAGE = `Commands:
-* help - This message
+* helpme - This message
 * start - Receive messages
 * mute - Mute messages
 * day - Receive messages until the end of the day`
@@ -83,6 +86,7 @@ const START_MESSAGE = `👂`
 const STOP_MESSAGE = `🔇`
 
 const subscribe = async (user: IUser): Promise<void> => {
+  console.log(`Subscribing ${user.phonenumber}`)
   await getUserModel().findOneAndUpdate(
     { _id: user._id },
     {
@@ -99,6 +103,11 @@ export const receiveMessage = async (req: Request, res: Response) => {
   const from: string = req.body.From
   const body: string = get(req, 'body.Body', '').trim()
 
+  if (!body) {
+    console.log('received empty message')
+    return res.send('')
+  }
+
   console.log(`receiveMessage - ${from}: ${body}`)
 
   // Load user
@@ -106,11 +115,15 @@ export const receiveMessage = async (req: Request, res: Response) => {
     .findOneAndUpdate({ phonenumber: from }, {}, { upsert: true, new: true })
     .lean<IUser>()
 
+  console.log(`receiveMessage - user: ${JSON.stringify(user)}`)
+
   // Is this a command?
   const normalizedMessage = body
     .trim()
     .toLowerCase()
     .replace(/[^\w|\s]+/g, '')
+
+  console.log(`receiveMessage - normalizedMessage: ${normalizedMessage}`)
 
   switch (normalizedMessage) {
     case 'hi':
