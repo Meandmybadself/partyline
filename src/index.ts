@@ -29,6 +29,5 @@ app.listen(process.env.PORT)
 console.log('')
 console.log('=============================')
 console.log('🥳 partyline')
-console.log('-----------------------------')
-console.log(`${process.env.APP_URL}:${process.env.PORT}/`)
+console.log('-----------------------------')e
 console.log('')

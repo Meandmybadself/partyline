@@ -4,4 +4,10 @@
 
 Some times, you feel like participating in SMS chats, some times you don't.
 
-Note: This is very much a WIP.
+## Environment Variables
+
+* DB_URI - Mongoose URI
+* PORT
+* ACCOUNT_SID
+* ACCOUNT_TOKEN
+* PHONE_NUMBER
