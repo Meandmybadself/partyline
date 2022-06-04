@@ -5,6 +5,7 @@ import { Request, Response } from 'express'
 import moment from 'moment'
 import mongoose from 'mongoose'
 import Twilio from 'twilio'
+import { get } from 'lodash'
 
 const twilio = Twilio(process.env.ACCOUNT_SID, process.env.ACCOUNT_TOKEN)
 
@@ -96,7 +97,7 @@ const subscribe = async (user: IUser): Promise<void> => {
 
 export const receiveMessage = async (req: Request, res: Response) => {
   const from: string = req.body.From
-  const body: string = req.body.Body.trim()
+  const body: string = get(req, 'body.Body', '').trim()
 
   console.log(`receiveMessage - ${from}: ${body}`)
 
@@ -114,7 +115,7 @@ export const receiveMessage = async (req: Request, res: Response) => {
   switch (normalizedMessage) {
     case 'hi':
     case 'sup':
-    case 'help':
+    case 'helpme':
     case '?':
       await sendMessage(HELP_MESSAGE, from)
       await subscribe(user)
