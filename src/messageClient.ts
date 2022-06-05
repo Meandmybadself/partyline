@@ -103,6 +103,11 @@ export const receiveMessage = async (req: Request, res: Response) => {
   const from: string = req.body.From
   const body: string = get(req, 'body.Body', '').trim()
 
+  if (!body) {
+    console.log('received empty message')
+    return res.send('')
+  }
+
   console.log(`receiveMessage - ${from}: ${body}`)
 
   // Load user
