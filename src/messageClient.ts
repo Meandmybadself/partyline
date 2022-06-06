@@ -103,6 +103,10 @@ export const receiveMessage = async (req: Request, res: Response) => {
   const from: string = req.body.From
   const body: string = get(req, 'body.Body', '').trim()
 
+  if (!from) {
+    return res.status(400).send('No from number')
+  }
+
   if (!body) {
     console.log('received empty message')
     return res.send('')
